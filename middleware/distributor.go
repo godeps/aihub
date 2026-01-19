@@ -125,6 +125,9 @@ func Distribute() func(c *gin.Context) {
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
 		SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		if !applyRequestUpstreamOverride(c) {
+			return
+		}
 		c.Next()
 	}
 }

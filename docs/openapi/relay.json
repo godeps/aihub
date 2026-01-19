@@ -1314,6 +1314,24 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "X-Relay-Upstream-Base-URL",
+            "in": "header",
+            "description": "可选：请求级上游地址覆盖（需开启功能并在白名单中）",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-Relay-Upstream-Headers",
+            "in": "header",
+            "description": "可选：请求级上游鉴权头覆盖，JSON 字符串",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {

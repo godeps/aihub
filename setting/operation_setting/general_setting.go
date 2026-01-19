@@ -20,6 +20,9 @@ type GeneralSetting struct {
 	CustomCurrencySymbol string `json:"custom_currency_symbol"`
 	// 自定义货币与美元汇率（1 USD = X Custom）
 	CustomCurrencyExchangeRate float64 `json:"custom_currency_exchange_rate"`
+	// Request-level upstream override for relay requests
+	RequestUpstreamOverrideEnabled   bool     `json:"request_upstream_override_enabled"`
+	RequestUpstreamOverrideAllowlist []string `json:"request_upstream_override_allowlist"`
 }
 
 // 默认配置
@@ -30,6 +33,8 @@ var generalSetting = GeneralSetting{
 	QuotaDisplayType:           QuotaDisplayTypeUSD,
 	CustomCurrencySymbol:       "¤",
 	CustomCurrencyExchangeRate: 1.0,
+	RequestUpstreamOverrideEnabled:   true,
+	RequestUpstreamOverrideAllowlist: []string{"*"},
 }
 
 func init() {
@@ -39,6 +44,14 @@ func init() {
 
 func GetGeneralSetting() *GeneralSetting {
 	return &generalSetting
+}
+
+func IsRequestUpstreamOverrideEnabled() bool {
+	return generalSetting.RequestUpstreamOverrideEnabled
+}
+
+func GetRequestUpstreamOverrideAllowlist() []string {
+	return generalSetting.RequestUpstreamOverrideAllowlist
 }
 
 // IsCurrencyDisplay 是否以货币形式展示（美元或人民币）

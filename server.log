@@ -1,0 +1,28 @@
+[SYS] 2026/01/18 - 19:55:42 | initializing token encoders 
+[SYS] 2026/01/18 - 19:55:42 | token encoders initialized 
+[SYS] 2026/01/18 - 19:55:42 | SQL_DSN not set, using SQLite as database 
+[SYS] 2026/01/18 - 19:55:42 | database migration started 
+
+2026/01/18 19:55:42 [31;1m/home/vipas/workspace/xiaozhi-server/AIHub/model/setup.go:11 [35;1mrecord not found
+[0m[33m[0.070ms] [34;1m[rows:0][0m SELECT * FROM `setups` ORDER BY `setups`.`id` LIMIT 1
+
+2026/01/18 19:55:42 [31;1m/home/vipas/workspace/xiaozhi-server/AIHub/model/user.go:926 [35;1mrecord not found
+[0m[33m[0.139ms] [34;1m[rows:0][0m SELECT * FROM `users` WHERE role = 100 AND `users`.`deleted_at` IS NULL ORDER BY `users`.`id` LIMIT 1
+[SYS] 2026/01/18 - 19:55:42 | system is not initialized and no root user exists 
+[SYS] 2026/01/18 - 19:55:42 | REDIS_CONN_STRING not set, Redis is not enabled 
+[SYS] 2026/01/18 - 19:55:42 | New API v0.0.0 started 
+[SYS] 2026/01/18 - 19:55:42 | 正在更新数据看板数据... 
+[SYS] 2026/01/18 - 19:55:42 | 保存数据看板数据成功，共保存0条数据 
+[INFO] 2026/01/18 - 19:55:42 | SYSTEM | codex credential auto-refresh task started: tick=10m0s threshold=24h0m0s 
+
+  [32mNew API v0.0.0[0m  ready in 309 ms
+
+  ➜  [1mLocal:[0m   http://localhost:3000/
+  ➜  [1mNetwork:[0m http://192.168.31.246:3000/
+  ➜  [1mNetwork:[0m http://172.18.0.1:3000/
+  ➜  [1mNetwork:[0m http://172.19.0.1:3000/
+  ➜  [1mNetwork:[0m http://172.21.0.1:3000/
+  ➜  [1mNetwork:[0m http://172.17.0.1:3000/
+
+[FATAL] 2026/01/18 - 19:55:42 | [failed to start HTTP server: listen tcp :3000: bind: address already in use] 
+exit status 1

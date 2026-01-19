@@ -171,7 +171,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
 func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
 	channel.SetupApiRequestHeader(info, c, req)
-	req.Set("x-goog-api-key", info.ApiKey)
+	if req.Get("x-goog-api-key") == "" && req.Get("Authorization") == "" {
+		req.Set("x-goog-api-key", info.ApiKey)
+	}
 	return nil
 }
 
