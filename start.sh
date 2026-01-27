@@ -4,6 +4,11 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT_DIR"
 
+# Example env overrides (uncomment to use)
+# export REQUEST_UPSTREAM_OVERRIDE_ENABLED=true
+# export REQUEST_UPSTREAM_OVERRIDE_ALLOWLIST='["*"]'
+# export REQUEST_UPSTREAM_PROXY_MAP='{"api.example.com":"http://corp-proxy:8080","*.example.com":"http://corp-proxy:8080",".example.com":"http://corp-proxy:8080"}'
+
 PORT="${PORT:-19000}"
 export PORT
 

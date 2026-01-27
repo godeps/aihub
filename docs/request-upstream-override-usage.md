@@ -7,11 +7,27 @@
 
 - `general_setting.request_upstream_override_enabled = true`
 - `general_setting.request_upstream_override_allowlist = ["proxy.example.com","https://proxy2.example.com"]`
+- `general_setting.request_upstream_proxy_map = {"proxy.example.com":"http://corp-proxy:8080"}`
 
 说明：
 - 白名单只比较 host，可以写纯域名或完整 URL。
 - 不在白名单内的 host 将被拒绝（403）。
 - `*` 表示允许所有上游（默认配置已启用）。
+- `request_upstream_proxy_map` 以 host 为 key，value 为代理地址（http/https/socks5 均可）。
+  - 支持精确匹配（`api.example.com`）
+  - 支持通配符匹配（`*.example.com`，仅匹配子域）
+  - 支持后缀匹配（`.example.com`，匹配根域与子域）
+  - 优先级：精确 > 通配符 > 后缀；通配/后缀按最长后缀优先
+  - value 为 `none` 表示显式不走代理（会清空渠道默认代理）
+  - 解析结果会在进程内缓存，配置更新后自动刷新
+
+### 环境变量配置
+
+```bash
+export REQUEST_UPSTREAM_OVERRIDE_ENABLED=true
+export REQUEST_UPSTREAM_OVERRIDE_ALLOWLIST='["*"]'
+export REQUEST_UPSTREAM_PROXY_MAP='{"proxy.example.com":"http://corp-proxy:8080"}'
+```
 
 ### API 设置示例（管理员）
 
@@ -25,6 +41,11 @@ curl -X PUT "http://localhost:19000/api/option/" \
   -H "Authorization: Bearer <admin-token>" \
   -H "Content-Type: application/json" \
   -d '{"key":"general_setting.request_upstream_override_allowlist","value":"[\"*\"]"}'
+
+curl -X PUT "http://localhost:19000/api/option/" \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"key":"general_setting.request_upstream_proxy_map","value":"{\"proxy.example.com\":\"http://corp-proxy:8080\"}"}'
 ```
 
 ## 2. 请求头

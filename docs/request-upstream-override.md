@@ -31,6 +31,11 @@ Behavior:
 Add to operation settings:
 - `request_upstream_override_enabled` (bool, default false)
 - `request_upstream_override_allowlist` ([]string, default empty)
+- `request_upstream_proxy_map` (map[string]string, default empty)
+Environment overrides:
+- `REQUEST_UPSTREAM_OVERRIDE_ENABLED` (bool)
+- `REQUEST_UPSTREAM_OVERRIDE_ALLOWLIST` (JSON array)
+- `REQUEST_UPSTREAM_PROXY_MAP` (JSON object)
 
 ### 2) Middleware Override
 After channel selection, parse headers:
@@ -38,6 +43,8 @@ After channel selection, parse headers:
 - Validate feature enabled.
 - Validate URL scheme and host are in allowlist.
 - Parse JSON header override map.
+- Resolve optional proxy from `request_upstream_proxy_map` based on upstream host.
+  - Value `none` disables proxy for the matched host.
 - If valid, override:
   - `ContextKeyChannelBaseUrl`
   - `ContextKeyChannelHeaderOverride`

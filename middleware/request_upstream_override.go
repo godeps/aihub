@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -30,6 +34,15 @@ type upstreamOverrideError struct {
 	Code       string
 	Message    string
 }
+
+const (
+	proxyNoOverrideValue       = "none"
+	upstreamProxyCacheSizeLimit = 1024
+)
+
+var upstreamProxyCache sync.Map
+var upstreamProxyCacheCount atomic.Int64
+var upstreamProxyMapPtr atomic.Uintptr
 
 func applyRequestUpstreamOverride(c *gin.Context) bool {
 	override, overrideErr := parseUpstreamOverrideFromRequest(c)
@@ -80,8 +93,16 @@ func parseUpstreamOverrideFromRequest(c *gin.Context) (*upstreamOverride, *upstr
 			Message:    "request upstream base url is required",
 		}
 	}
+	upstreamHost, hostErr := parseUpstreamHost(baseURLHeader)
+	if hostErr != nil {
+		return nil, &upstreamOverrideError{
+			StatusCode: http.StatusBadRequest,
+			Code:       string(types.ErrorCodeInvalidRequest),
+			Message:    hostErr.Error(),
+		}
+	}
 	allowlist := operation_setting.GetRequestUpstreamOverrideAllowlist()
-	allowed, allowErr := isUpstreamAllowlisted(baseURLHeader, allowlist)
+	allowed, allowErr := isUpstreamAllowlisted(upstreamHost, allowlist)
 	if allowErr != nil {
 		return nil, &upstreamOverrideError{
 			StatusCode: http.StatusBadRequest,
@@ -116,24 +137,37 @@ func parseUpstreamOverrideFromRequest(c *gin.Context) (*upstreamOverride, *upstr
 			headers[key] = value
 		}
 	}
+
+	if proxyURL, ok := resolveUpstreamProxy(upstreamHost); ok {
+		channelSetting, ok := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting)
+		if ok {
+			channelSetting.Proxy = proxyURL
+			common.SetContextKey(c, constant.ContextKeyChannelSetting, channelSetting)
+		}
+	}
+
 	return &upstreamOverride{
 		BaseURL: baseURLHeader,
 		Headers: headers,
 	}, nil
 }
 
-func isUpstreamAllowlisted(baseURL string, allowlist []string) (bool, error) {
+func parseUpstreamHost(baseURL string) (string, error) {
 	parsed, err := url.Parse(baseURL)
 	if err != nil {
-		return false, fmt.Errorf("request upstream base url invalid")
+		return "", fmt.Errorf("request upstream base url invalid")
 	}
 	if parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return false, fmt.Errorf("request upstream base url scheme not allowed")
+		return "", fmt.Errorf("request upstream base url scheme not allowed")
 	}
 	host := strings.ToLower(parsed.Host)
 	if host == "" {
-		return false, fmt.Errorf("request upstream base url host missing")
+		return "", fmt.Errorf("request upstream base url host missing")
 	}
+	return host, nil
+}
+
+func isUpstreamAllowlisted(host string, allowlist []string) (bool, error) {
 	for _, entry := range allowlist {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
@@ -142,18 +176,118 @@ func isUpstreamAllowlisted(baseURL string, allowlist []string) (bool, error) {
 		if entry == "*" {
 			return true, nil
 		}
-		entryHost := entry
-		if strings.Contains(entry, "://") {
-			parsedEntry, err := url.Parse(entry)
-			if err != nil {
-				continue
-			}
-			entryHost = parsedEntry.Host
-		}
-		entryHost = strings.ToLower(strings.TrimSpace(entryHost))
+		entryHost := normalizeUpstreamHost(entry)
 		if entryHost != "" && host == entryHost {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func resolveUpstreamProxy(host string) (string, bool) {
+	proxyMap := operation_setting.GetRequestUpstreamProxyMap()
+	if len(proxyMap) == 0 {
+		return "", false
+	}
+	mapPtr := reflect.ValueOf(proxyMap).Pointer()
+	if upstreamProxyMapPtr.Load() != mapPtr {
+		upstreamProxyCache.Clear()
+		upstreamProxyCacheCount.Store(0)
+		upstreamProxyMapPtr.Store(mapPtr)
+	}
+	if cached, ok := upstreamProxyCache.Load(host); ok {
+		return cached.(string), true
+	}
+	if upstreamProxyCacheCount.Load() > upstreamProxyCacheSizeLimit {
+		upstreamProxyCache.Clear()
+		upstreamProxyCacheCount.Store(0)
+	}
+	exactMatch := ""
+	exactMatched := false
+	wildcardMatch := ""
+	wildcardLen := 0
+	suffixMatch := ""
+	suffixLen := 0
+
+	for key, proxyURL := range proxyMap {
+		entryHost := normalizeUpstreamHost(key)
+		if entryHost == "" {
+			continue
+		}
+		proxyURL = strings.TrimSpace(proxyURL)
+		if strings.EqualFold(proxyURL, proxyNoOverrideValue) {
+			proxyURL = ""
+		}
+		if entryHost == host {
+			exactMatch = proxyURL
+			exactMatched = true
+			break
+		}
+		if strings.HasPrefix(entryHost, "*.") {
+			suffix := strings.TrimPrefix(entryHost, "*.")
+			if suffix != "" && strings.HasSuffix(host, "."+suffix) {
+				if len(suffix) > wildcardLen {
+					wildcardLen = len(suffix)
+					wildcardMatch = proxyURL
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(entryHost, ".") {
+			suffix := strings.TrimPrefix(entryHost, ".")
+			if suffix != "" && (host == suffix || strings.HasSuffix(host, "."+suffix)) {
+				if len(suffix) > suffixLen {
+					suffixLen = len(suffix)
+					suffixMatch = proxyURL
+				}
+			}
+		}
+	}
+
+	if exactMatched {
+		cacheProxyResolution(host, exactMatch)
+		return exactMatch, true
+	}
+	if wildcardMatch != "" {
+		cacheProxyResolution(host, wildcardMatch)
+		return wildcardMatch, true
+	}
+	if suffixMatch != "" {
+		cacheProxyResolution(host, suffixMatch)
+		return suffixMatch, true
+	}
+	return "", false
+}
+
+func cacheProxyResolution(host string, proxyURL string) {
+	if _, loaded := upstreamProxyCache.LoadOrStore(host, proxyURL); !loaded {
+		upstreamProxyCacheCount.Add(1)
+	} else {
+		upstreamProxyCache.Store(host, proxyURL)
+	}
+	if upstreamProxyCacheCount.Load() > upstreamProxyCacheSizeLimit {
+		upstreamProxyCache.Clear()
+		upstreamProxyCacheCount.Store(0)
+	}
+}
+
+func resetUpstreamProxyCache() {
+	upstreamProxyCache.Clear()
+	upstreamProxyCacheCount.Store(0)
+	upstreamProxyMapPtr.Store(0)
+}
+
+func normalizeUpstreamHost(entry string) string {
+	entry = strings.TrimSpace(entry)
+	if entry == "" {
+		return ""
+	}
+	if strings.Contains(entry, "://") {
+		parsed, err := url.Parse(entry)
+		if err != nil {
+			return ""
+		}
+		return strings.ToLower(strings.TrimSpace(parsed.Host))
+	}
+	return strings.ToLower(entry)
 }
