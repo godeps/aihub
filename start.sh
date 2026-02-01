@@ -11,6 +11,17 @@ cd "$ROOT_DIR"
 
 PORT="${PORT:-19000}"
 export PORT
+DAEMON=false
+
+while getopts ":d" opt; do
+  case "${opt}" in
+    d)
+      DAEMON=true
+      ;;
+    *)
+      ;;
+  esac
+done
 
 kill_port_process() {
   local port="$1"
@@ -42,4 +53,10 @@ go build ./...
 kill_port_process "${PORT}"
 
 echo "[start] starting backend on port ${PORT}..."
-exec go run main.go --port "${PORT}"
+if [ "${DAEMON}" = "true" ]; then
+  mkdir -p "${ROOT_DIR}/logs"
+  nohup go run main.go --port "${PORT}" >> "${ROOT_DIR}/logs/server.log" 2>&1 &
+  echo "[start] backend started in daemon mode (pid $!)"
+else
+  exec go run main.go --port "${PORT}"
+fi

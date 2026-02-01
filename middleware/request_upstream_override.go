@@ -31,7 +31,7 @@ type upstreamOverride struct {
 
 type upstreamOverrideError struct {
 	StatusCode int
-	Code       string
+	Code       types.ErrorCode
 	Message    string
 }
 
@@ -82,14 +82,14 @@ func parseUpstreamOverrideFromRequest(c *gin.Context) (*upstreamOverride, *upstr
 	if !operation_setting.IsRequestUpstreamOverrideEnabled() {
 		return nil, &upstreamOverrideError{
 			StatusCode: http.StatusForbidden,
-			Code:       string(types.ErrorCodeAccessDenied),
+			Code:       types.ErrorCodeAccessDenied,
 			Message:    "request upstream override is disabled",
 		}
 	}
 	if baseURLHeader == "" {
 		return nil, &upstreamOverrideError{
 			StatusCode: http.StatusBadRequest,
-			Code:       string(types.ErrorCodeInvalidRequest),
+			Code:       types.ErrorCodeInvalidRequest,
 			Message:    "request upstream base url is required",
 		}
 	}
@@ -97,7 +97,7 @@ func parseUpstreamOverrideFromRequest(c *gin.Context) (*upstreamOverride, *upstr
 	if hostErr != nil {
 		return nil, &upstreamOverrideError{
 			StatusCode: http.StatusBadRequest,
-			Code:       string(types.ErrorCodeInvalidRequest),
+			Code:       types.ErrorCodeInvalidRequest,
 			Message:    hostErr.Error(),
 		}
 	}
@@ -106,14 +106,14 @@ func parseUpstreamOverrideFromRequest(c *gin.Context) (*upstreamOverride, *upstr
 	if allowErr != nil {
 		return nil, &upstreamOverrideError{
 			StatusCode: http.StatusBadRequest,
-			Code:       string(types.ErrorCodeInvalidRequest),
+			Code:       types.ErrorCodeInvalidRequest,
 			Message:    allowErr.Error(),
 		}
 	}
 	if !allowed {
 		return nil, &upstreamOverrideError{
 			StatusCode: http.StatusForbidden,
-			Code:       string(types.ErrorCodeAccessDenied),
+			Code:       types.ErrorCodeAccessDenied,
 			Message:    "request upstream override not allowlisted",
 		}
 	}
@@ -122,7 +122,7 @@ func parseUpstreamOverrideFromRequest(c *gin.Context) (*upstreamOverride, *upstr
 		if err := json.Unmarshal([]byte(headersHeader), &headers); err != nil {
 			return nil, &upstreamOverrideError{
 				StatusCode: http.StatusBadRequest,
-				Code:       string(types.ErrorCodeInvalidRequest),
+				Code:       types.ErrorCodeInvalidRequest,
 				Message:    "request upstream headers invalid",
 			}
 		}
@@ -130,7 +130,7 @@ func parseUpstreamOverrideFromRequest(c *gin.Context) (*upstreamOverride, *upstr
 			if strings.TrimSpace(key) == "" {
 				return nil, &upstreamOverrideError{
 					StatusCode: http.StatusBadRequest,
-					Code:       string(types.ErrorCodeInvalidRequest),
+					Code:       types.ErrorCodeInvalidRequest,
 					Message:    "request upstream headers include empty key",
 				}
 			}
