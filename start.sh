@@ -45,7 +45,7 @@ kill_port_process() {
 }
 
 echo "[start] building frontend..."
-make build-frontend
+#make build-frontend
 
 echo "[start] building backend..."
 go build ./...
